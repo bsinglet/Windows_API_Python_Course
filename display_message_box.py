@@ -1,7 +1,7 @@
 """
  Filename: display_message_box.py
- Description: Kills a process when give the window title. All code in this file
- copied from Brandon Dennis' "Hacking Windows API With Python" course on Udemy.
+ Description: Creates a pop-up with the Ok and Cancel buttons. All code in this
+ file copied from Brandon Dennis' "Hacking Windows API With Python" course on Udemy.
  Created by: Benjamin M. Singleton
  Created: 03-09-2020
 """

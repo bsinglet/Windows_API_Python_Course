@@ -1,6 +1,7 @@
 """
  Filename: create_process_w.py
- Description: Creates a new command prompt window.
+ Description: Creates a new command prompt window. All code in this file copied
+from Brandon Dennis' "Hacking Windows API With Python" course on Udemy.
  Created by: Benjamin M. Singleton
  Created: 03-11-2020
 """
