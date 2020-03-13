@@ -43,3 +43,40 @@ class STARTUPINFOA(ctypes.Structure):
         ('hStdOutput', 'HANDLE'),
         ('hStdError', 'HANDLE')
     ]
+
+class DNS_CACHE_ENTRY(ctypes.Structure):
+    _fields_ = [
+        ('pNext', HANDLE),  # these are linked list entries, so pNext points to the next DNS_CACHE_ENTRY
+        ('recName', LPWSTR),  # this is where the name of the DNS request will go
+        ('wType', DWORD),
+        ('wDataLength', DWORD),
+        ('dwFlags', DWORD)
+    ]
+
+class LUID(ctypes.Structure):
+    _fields_ = [
+        ("LowPart", DWORD),
+        ("HighPart", DWORD),
+    ]
+
+
+class LUID_AND_ATTRIBUTES(ctypes.Structure):
+    _fields_ = [
+        ("Luid", LUID),
+        ("Attributes", DWORD),
+    ]
+
+
+class PRIVILEGE_SET(ctypes.Structure):
+    _fields_ = [
+        ("PrivilegeCount", DWORD),
+        ("Control", DWORD),
+        ("Privileges", LUID_AND_ATTRIBUTES),
+    ]
+
+
+class TOKEN_PRIVILEGES(ctypes.Structure):
+    _fields_ = [
+        ("PrivilegeCount", DWORD),
+        ("Privileges", LUID_AND_ATTRIBUTES),
+    ]
