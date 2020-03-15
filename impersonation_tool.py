@@ -12,7 +12,7 @@
 import ctypes
 
 # Import Python -> Windows Types from ctypes
-from ctypes.wintypes import DWORD
+from ctypes.wintypes import DWORD, LPVOID, BOOL, BYTE, PSID, SECURITY_DESCRIPTOR_CONTROL
 import os
 
 # Access Rights
@@ -74,6 +74,26 @@ class TOKEN_PRIVILEGES(ctypes.Structure):
     _fields_ = [
         ("PrivilegeCount", DWORD),
         ("Privileges", LUID_AND_ATTRIBUTES),
+    ]
+
+
+class SECURITY_ATTRIBUTES(ctypes.Structure):
+    _fields_ = [
+        ("nLength", DWORD),
+        ("lpSecurityDescriptor", LPVOID),
+        ("bInheritHandle", BOOL)
+    ]
+
+
+class SECURITY_DESCRIPTOR(ctypes.Structure):
+    _fields_ = [
+        ("Revision", BYTE),
+        ("Sbz1", BYTE),
+        ("Control", SECURITY_DESCRIPTOR_CONTROL),
+        ("Owner", PSID),
+        ("Group", PSID),
+        ("Sacl", PSID),
+        ("Dacl", PSID)
     ]
 
 
@@ -224,14 +244,63 @@ def adjust_token_privilege(requiredPrivileges, TokenHandle, a_handle, k_handle):
         print("[ERROR] AdjustTokenPrivileges Failed! Error Code: {0}".format(k_handle.GetLastError()))
 
 
-def duplicate_token_ex():
+def duplicate_token_ex(target_token_handle, k_handle):
+    # now we duplicate the target process token
+    hExistingToken = target_token_handle
+    dwDesiredAccess = TOKEN_ALL_ACCESS
+    lpTokenAttributes = None
+    ImpersonationLevel = None
+    TokenType = None
+    phNewToken = None
+
     # Calls DuplicateTokenEx
-    pass
+    response = k_handle.DuplicateTokenEX(
+        hExistingToken,
+        dwDesiredAccess,
+        lpTokenAttributes,
+        ImpersonationLevel,
+        TokenType,
+        phNewToken
+    )
+
+    if response > 0:
+        print("[INFO] DuplicateTokenEX worked...")
+    else:
+        print("[ERROR] DuplicateTokenEX Failed! Error Code: {0}".format(k_handle.GetLastError()))
+
+    return response
 
 
-def create_process_with_token_w():
+def create_process_with_token_w(hToken, k_handle):
+    # hToken given
+    dwLogonFlags = None
+    lpApplicationName = None
+    lpCommandLine = None
+    dwCreationFlags = None
+    lpEnvironment = None
+    lpCurrentDirectory = None
+    lpStartupInfo = None
+    lpProcessInformation = None
+
     # CreateProcessWithTokenW
-    pass
+    response = k_handle.CreateProcessWithTokenW(
+        hToken,
+        dwLogonFlags,
+        lpApplicationName,
+        lpCommandLine,
+        dwCreationFlags,
+        lpEnvironment,
+        lpCurrentDirectory,
+        lpStartupInfo,
+        lpProcessInformation
+    )
+
+    if response > 0:
+        print("[INFO] CreateProcessWithTokenW worked...")
+    else:
+        print("[ERROR] CreateProcessWithTokenW Failed! Error Code: {0}".format(k_handle.GetLastError()))
+
+    return response
 
 
 def my_get_proces_token(lpWindowName, k_handle, u_handle):
@@ -278,54 +347,9 @@ def main():
     my_token_handle = my_get_proces_token_by_id(my_process_id, k_handle)
     toggle_privilege('SEDebugPrivlege', my_token_handle, a_handle, k_handle)
 
-    # now we duplicate the target process token
-    hExistingToken = target_token_handle
-    dwDesiredAccess = None
-    lpTokenAttributes = None
-    ImpersonationLevel = None
-    TokenType = None
-    phNewToken = None
+    hToken = duplicate_token_ex(target_token_handle, k_handle)
 
-    response = k_handle.DuplicateTokenEX(
-        hExistingToken,
-        dwDesiredAccess,
-        lpTokenAttributes,
-        ImpersonationLevel,
-        TokenType,
-        phNewToken
-    )
-
-    if response > 0:
-        print("[INFO] DuplicateTokenEX worked...")
-        else:
-        print("[ERROR] DuplicateTokenEX Failed! Error Code: {0}".format(k_handle.GetLastError()))
-
-    hToken = None
-    dwLogonFlags = None
-    lpApplicationName = None
-    lpCommandLine = None
-    dwCreationFlags = None
-    lpEnvironment = None
-    lpCurrentDirectory = None
-    lpStartupInfo = None
-    lpProcessInformation = None
-
-    response = k_handle.CreateProcessWithTokenW(
-        hToken,
-        dwLogonFlags,
-        lpApplicationName,
-        lpCommandLine,
-        dwCreationFlags,
-        lpEnvironment,
-        lpCurrentDirectory,
-        lpStartupInfo,
-        lpProcessInformation
-    )
-
-    if response > 0:
-        print("[INFO] CreateProcessWithTokenW worked...")
-        else:
-        print("[ERROR] CreateProcessWithTokenW Failed! Error Code: {0}".format(k_handle.GetLastError()))
+    new_process = create_process_with_token_w(hToken, k_handle)
 
 
 if __name__ == '__main__':
