@@ -1,6 +1,7 @@
 """
  Filename: impersonation_tool.py
- Description:
+ Description: Reads the process token running under another user, then spawns a
+ new process running as that user but belonging to this process.
 
  Heavily modified from Brandon Dennis' "Hacking Windows API With Python" course
  on Udemy.
@@ -12,7 +13,7 @@
 import ctypes
 
 # Import Python -> Windows Types from ctypes
-from ctypes.wintypes import DWORD, LPVOID, BOOL, BYTE, PSID, SECURITY_DESCRIPTOR_CONTROL
+from ctypes.wintypes import DWORD, LPVOID, BOOL, HANDLE, WORD, LPBYTE, LPSTR
 import os
 
 # Access Rights
@@ -85,15 +86,35 @@ class SECURITY_ATTRIBUTES(ctypes.Structure):
     ]
 
 
-class SECURITY_DESCRIPTOR(ctypes.Structure):
+class STARTUPINFOA(ctypes.Structure):
     _fields_ = [
-        ("Revision", BYTE),
-        ("Sbz1", BYTE),
-        ("Control", SECURITY_DESCRIPTOR_CONTROL),
-        ("Owner", PSID),
-        ("Group", PSID),
-        ("Sacl", PSID),
-        ("Dacl", PSID)
+        ('cb', DWORD),
+        ('lpReserved', LPSTR),
+        ('lpDesktop', LPSTR),
+        ('lpTitle', LPSTR),
+        ('dwX', DWORD),
+        ('dwY', DWORD),
+        ('dwXSize', DWORD),
+        ('dwYSize', DWORD),
+        ('dwXCountChars', DWORD),
+        ('dwYCountChars', DWORD),
+        ('dwFillAttribute', DWORD),
+        ('dwFlags', DWORD),
+        (' wShowWindow', WORD),
+        (' cbReserved2', WORD),
+        ('lpReserved2', LPBYTE),
+        ('hStdInput', HANDLE),
+        ('hStdOutput', HANDLE),
+        ('hStdError', HANDLE)
+    ]
+
+
+class PROCESS_INFORMATION(ctypes.Structure):
+    _fields_ = [
+        ("hProcess", HANDLE),
+        ("hThread", HANDLE),
+        ("dwProcessId", DWORD),
+        ("dwThreadId", DWORD)
     ]
 
 
@@ -248,19 +269,24 @@ def duplicate_token_ex(target_token_handle, k_handle):
     # now we duplicate the target process token
     hExistingToken = target_token_handle
     dwDesiredAccess = TOKEN_ALL_ACCESS
-    lpTokenAttributes = None
-    ImpersonationLevel = None
-    TokenType = None
-    phNewToken = None
+    lpTokenAttributes = SECURITY_ATTRIBUTES()
+    ImpersonationLevel = 2  # see _SECURITY_IMPERSONATION_LEVEL documentation, 2 == SecurityImpersonation
+    TokenType = 1  # 1 == TokenPrimary, meaning it can be used for CreateProcessAsUser and others
+    phNewToken = ctypes.c_void_p()  # allocate a pointer for the new handle
+
+    # set up the necessary Security Attributes
+    lpTokenAttributes.bInheritHandle = False  # unnecessary here because it won't be spawning further processes
+    lpTokenAttributes.lpSecurityDescriptor = ctypes.c_void_p()  # has to be right size for a pointer
+    lpTokenAttributes.nLength = ctypes.sizeof(lpTokenAttributes)  # set the right size of itself
 
     # Calls DuplicateTokenEx
     response = k_handle.DuplicateTokenEX(
         hExistingToken,
         dwDesiredAccess,
-        lpTokenAttributes,
+        ctypes.byref(lpTokenAttributes),
         ImpersonationLevel,
         TokenType,
-        phNewToken
+        ctypes.byref(phNewToken)
     )
 
     if response > 0:
@@ -268,31 +294,35 @@ def duplicate_token_ex(target_token_handle, k_handle):
     else:
         print("[ERROR] DuplicateTokenEX Failed! Error Code: {0}".format(k_handle.GetLastError()))
 
-    return response
+    return phNewToken
 
 
 def create_process_with_token_w(hToken, k_handle):
     # hToken given
-    dwLogonFlags = None
-    lpApplicationName = None
-    lpCommandLine = None
-    dwCreationFlags = None
-    lpEnvironment = None
-    lpCurrentDirectory = None
-    lpStartupInfo = None
-    lpProcessInformation = None
+    dwLogonFlags = 0x00000001  # corresponds to LOGON_WITH_PROFILE, instead of using the network
+    lpApplicationName = "C:\System32\cmd.exe"
+    lpCommandLine = None  # not using any command-line arguments
+    dwCreationFlags = 0x00000010  # CREATE_NEW_CONSOLE (i.e., spawn separate window)
+    lpEnvironment = None  # use the impersonated user's environment instead
+    lpCurrentDirectory = None  # use our current directory
+    lpStartupInfo = STARTUPINFOA()  # see below for new window's attributes
+    lpProcessInformation = PROCESS_INFORMATION()  # a pointer to store the new process info under
+
+    # set the attributes for the new window
+    lpStartupInfo.wShowWindow = 0x1  # 0x1 == show normal size, 0x3 == maximize
+    lpStartupInfo.dwFlags = 0x1  # have to set this flag for the API to check the wShowWindow setting
 
     # CreateProcessWithTokenW
     response = k_handle.CreateProcessWithTokenW(
-        hToken,
+        ctypes.byref(hToken),
         dwLogonFlags,
         lpApplicationName,
         lpCommandLine,
         dwCreationFlags,
         lpEnvironment,
         lpCurrentDirectory,
-        lpStartupInfo,
-        lpProcessInformation
+        ctypes.byref(lpStartupInfo),
+        ctypes.byref(lpProcessInformation)
     )
 
     if response > 0:
@@ -300,7 +330,7 @@ def create_process_with_token_w(hToken, k_handle):
     else:
         print("[ERROR] CreateProcessWithTokenW Failed! Error Code: {0}".format(k_handle.GetLastError()))
 
-    return response
+    return lpProcessInformation
 
 
 def my_get_proces_token(lpWindowName, k_handle, u_handle):
@@ -350,6 +380,8 @@ def main():
     hToken = duplicate_token_ex(target_token_handle, k_handle)
 
     new_process = create_process_with_token_w(hToken, k_handle)
+
+    print('New process ID: {0}'.format(new_process.dwProcessId))
 
 
 if __name__ == '__main__':

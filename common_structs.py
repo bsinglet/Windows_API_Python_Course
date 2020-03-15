@@ -6,7 +6,7 @@
 """
 
 import ctypes
-from ctypes.wintypes import HANDLE, DWORD
+from ctypes.wintypes import HANDLE, DWORD, LPSTR, LPBYTE, WORD, LPWSTR, BOOL, LPVOID
 
 
 # the name of the class doesn't have to match the real struct's name, but it
@@ -24,24 +24,24 @@ class PROCESS_INFORMATION(ctypes.Structure):
 
 class STARTUPINFOA(ctypes.Structure):
     _fields_ = [
-        ('cb', 'DWORD'),
-        ('lpReserved', 'LPSTR'),
-        ('lpDesktop', 'LPSTR'),
-        ('lpTitle', 'LPSTR'),
-        ('dwX', 'DWORD'),
-        ('dwY', 'DWORD'),
-        ('dwXSize', 'DWORD'),
-        ('dwYSize', 'DWORD'),
-        ('dwXCountChars', 'DWORD'),
-        ('dwYCountChars', 'DWORD'),
-        ('dwFillAttribute', 'DWORD'),
-        ('dwFlags', 'DWORD'),
-        (' wShowWindow', 'WORD'),
-        (' cbReserved2', 'WORD'),
-        ('lpReserved2', 'LPBYTE'),
-        ('hStdInput', 'HANDLE'),
-        ('hStdOutput', 'HANDLE'),
-        ('hStdError', 'HANDLE')
+        ('cb', DWORD),
+        ('lpReserved', LPSTR),
+        ('lpDesktop', LPSTR),
+        ('lpTitle', LPSTR),
+        ('dwX', DWORD),
+        ('dwY', DWORD),
+        ('dwXSize', DWORD),
+        ('dwYSize', DWORD),
+        ('dwXCountChars', DWORD),
+        ('dwYCountChars', DWORD),
+        ('dwFillAttribute', DWORD),
+        ('dwFlags', DWORD),
+        (' wShowWindow', WORD),
+        (' cbReserved2', WORD),
+        ('lpReserved2', LPBYTE),
+        ('hStdInput', HANDLE),
+        ('hStdOutput', HANDLE),
+        ('hStdError', HANDLE)
     ]
 
 class DNS_CACHE_ENTRY(ctypes.Structure):
@@ -79,4 +79,12 @@ class TOKEN_PRIVILEGES(ctypes.Structure):
     _fields_ = [
         ("PrivilegeCount", DWORD),
         ("Privileges", LUID_AND_ATTRIBUTES),
+    ]
+
+
+class SECURITY_ATTRIBUTES(ctypes.Structure):
+    _fields_ = [
+        ("nLength", DWORD),
+        ("lpSecurityDescriptor", LPVOID),
+        ("bInheritHandle", BOOL)
     ]
